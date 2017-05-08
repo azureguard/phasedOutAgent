@@ -6,7 +6,7 @@ class Card():
     """Definition of card with value, suit, colour and name."""
 
     # constants used for card definition
-    COLOUR = {'C': 0, 'D': 1, 'H': 1, 'S': 0}
+    COLOUR = {'C': 0, 'D': 1, 'H': 1, 'S': 0, 'Z': 2}
     VAL = {
         '2': 2,
         '3': 3,
@@ -27,9 +27,8 @@ class Card():
     def __init__(self, card):
         """Initialise card with values mapped to constants."""
         self.value = self.VAL[str(card[0])]
-        if not card == 'ZZ':
-            self.suit = card[1]
-            self.colour = self.COLOUR[card[1]]
+        self.suit = card[1]
+        self.colour = self.COLOUR[card[1]]
         self.name = card
 
 
@@ -305,9 +304,9 @@ class Table():
 
             # requisite cards not held or
             # attempted play does not form a phase or
-            # player attempted play of wrong phase for current status
+            # player attempted play of played phase
             if (not play_valid or phase_check is None or
-                    phase_check <= self.phase_status[player.pid]):
+                    self.phase_status[player.pid][phase_check]):
                 return False
             else:
                 return True

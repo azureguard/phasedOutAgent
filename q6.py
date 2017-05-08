@@ -1,9 +1,9 @@
-"""Project 3 Q5."""
+"""Project 3 Q6."""
 import itertools
 from collections import defaultdict as dd
 from operator import attrgetter
 
-from classes import Card, Group, Player, Set, Table
+from classes_bonus import Card, Group, Player, Set, Table
 
 
 def longest_run(player):
@@ -16,7 +16,7 @@ def longest_run(player):
 
     # separate card into colours
     for card in player.hand:
-        if not card.value == 25:
+        if not card.value >= 20:
             if card.value not in card_vals[card.colour]:
                 unique_cards[card.colour].append(card.name)
                 card_vals[card.colour].append(card.value)
@@ -94,16 +94,19 @@ def make_run(unique_cards, wild_cards, phase, valid_plays):
 def phase_play(player, table, discard):
     """Return valid groups within hand for specified type."""
     # get current player status
-    phase = player.phase + 1
-    hand = player.hand_list
+    phases = player.phase
+    temp = player.hand_list
+    hand = [card for card in temp if not card == 'ZZ']
     # set collector list
     valid_plays = []
     # definitions of groups in phases
     lengths = {1: (6, 3), 2: 7, 3: (8, 4), 5: (8, 4)}
     groups = {1: (1, 1), 2: 2, 3: (3, 3), 5: (5, 3)}
 
-    # phase 1 or 3
-    if phase == 1 or phase == 3:
+    # try plays for all unplayed phases
+    # phase 1 not played
+    if phases[0] is False:
+        phase = 1
         # generate combinations for each group
         super_set = itertools.combinations(hand, lengths[phase][0])
         for sub_set in super_set:
@@ -117,9 +120,9 @@ def phase_play(player, table, discard):
                     # check second group
                     if Group(g2).group == groups[phase][1]:
                         valid_plays.append((3, [g1, g2]))
-
-    # phase 2
-    if phase == 2:
+    # phase 2 not played
+    if phases[1] is False:
+        phase = 2
         # generate combinations
         super_set = itertools.combinations(hand, lengths[phase])
         # check group validity
@@ -127,8 +130,25 @@ def phase_play(player, table, discard):
             if Group(list(g1)).group == groups[phase]:
                 valid_plays.append((3, [list(g1)]))
 
-    # phase 4
-    if phase == 4:
+    # phase 3 not played
+    if phases[2] is False:
+        phase = 3
+        # generate combinations for each group
+        super_set = itertools.combinations(hand, lengths[phase][0])
+        for sub_set in super_set:
+            for g1 in itertools.combinations(sub_set, lengths[phase][1]):
+                # continue only if first group valid
+                if Group(list(g1)).group == groups[phase][0]:
+                    g1, g2 = list(g1), list(sub_set)
+                    # determine second group
+                    for card in g1:
+                        g2.remove(card)
+                    # check second group
+                    if Group(g2).group == groups[phase][1]:
+                        valid_plays.append((3, [g1, g2]))
+    # phase 4 not played
+    if phases[3] is False:
+        phase = 4
         # initialise collector lists
         unique_cards = []
         wild_cards = []
@@ -145,11 +165,12 @@ def phase_play(player, table, discard):
         if len(unique_cards) + len(wild_cards) >= 8:
             make_run(unique_cards, wild_cards, phase, valid_plays)
 
-    # phase 5
-    if phase == 5:
+    # phase 5 not played
+    if phases[4] is False:
+        phase = 5
         # pre-process card list for run generation with collector lists
-        unique_cards = ([], [])
-        card_vals = ([], [])
+        unique_cards = ([], [], [])
+        card_vals = ([], [], [])
         wild_cards = []
         test_plays = ([], [])
 
@@ -189,6 +210,8 @@ def phase_play(player, table, discard):
                 best_score = score
         return best_play
     # discard if no valid play
+    elif discard[0] is 'ZZ':
+        return (6, discard[1])
     else:
         return (5, discard[0])
 
@@ -241,7 +264,6 @@ def valid_4s(player, table, discard):
     # initialise collector lists
     logical_plays = []
     valid_plays = []
-
     # generate all possible play locations for each card in hand
     # check validity of play, return first valid play
     gen_4s(player.hand, table, logical_plays)
@@ -250,6 +272,8 @@ def valid_4s(player, table, discard):
     # return first valid play, else discard
     if len(valid_plays):
         return valid_plays[0]
+    elif discard[0] is 'ZZ':
+        return (6, discard[1])
     else:
         return (5, discard[0])
 
@@ -260,15 +284,17 @@ def prob_count(player, table):
     history = table.history
     played = table.status
     # define collector dictionaries and variables
+    skip_status = [0, 0, 0, 0]
     deck = 63
     player_hands = {0: 10, 1: 10, 2: 10, 3: 10}
-    prob_col = {0: 48, 1: 48}
-    suits = ('C', 'D', 'H', 'S')
+    prob_col = {0: 48, 1: 48, 2: 4}
+    suits = ('C', 'D', 'H', 'S', 'Z')
     prob_val = {}
     prob_suit = {}
     for val in range(2, 14):
         prob_val[val] = 8
     prob_val[25] = 8
+    prob_val[20] = 4
     for suit in suits:
         prob_suit[suit] = 24
 
@@ -276,8 +302,13 @@ def prob_count(player, table):
     for group in history:
         curr_player = group[0]
         plays = group[1]
-        for play in plays:
+        # reset skip status after player skipped
+        if curr_player == 0:
+            skip_status[3] = 0
+        else:
+            skip_status[curr_player - 1] = 0
 
+        for play in plays:
             if play[0] == 1:
                 player_hands[curr_player] += 1
                 deck -= 1
@@ -311,6 +342,9 @@ def prob_count(player, table):
                     prob_suit[discarded.suit] -= 1
                 prob_val[discarded.value] -= 1
 
+            if play[0] == 6:
+                skip_status[play[1]] = 1
+
     # get number of cards spent
     for phase in played:
         for card in phase.cards:
@@ -333,13 +367,13 @@ def prob_count(player, table):
     for k, v in prob_suit.items():
         prob_suit[k] = v / cards_left
 
-    return prob_col, prob_suit, prob_val, player_hands
+    return prob_col, prob_suit, prob_val, player_hands, skip_status
 
 
 def card_count(player, table):
     """Count needed cards, cards to discard."""
     # get player status
-    phase = player.phase + 1
+    phases = player.phase
     played = table.status[player.pid].phase
     # initialise collectors
     counts = {'colour': dd(int), 'suits': dd(int), 'values': dd(int)}
@@ -356,6 +390,32 @@ def card_count(player, table):
             suit_count[card.suit] += 1
         counts['values'][card.value] += 1
         value_count[card.value] += 1
+    max_val = max(counts['values'].values())
+    hval = []
+    for value, count in counts['values'].items():
+        if count == max_val:
+            hval.append(value)
+    try:
+        max_suit = max(counts['suits'].values())
+    except ValueError:
+        max_suit = None
+
+    # determine best phase play style given hand composition
+    if max_val > 3 and phases[2] is False:
+        phase = 3
+    elif max_val > 3 and phases[4] is False:
+        phase = 5
+    elif max_val > 2 and len(hval) > 1 and phases[0] is False:
+        phase = 1
+    elif max_suit is not None and max_suit > 4 and phases[1] is False:
+        phase = 2
+    elif phases[3] is False:
+        phase = 4
+    else:
+        for status in range(5):
+            if phases[status] is False:
+                phase = status - 1
+                break
 
     # run for phase yet to be played, else run for phase played
     if played is None:
@@ -364,7 +424,6 @@ def card_count(player, table):
     else:
         discard = gen_discard(None, player, table, counts)
         viable = gen_viable(None, player, table, counts)
-
     return discard, viable
 
 
@@ -375,7 +434,7 @@ def gen_hold(phase, player, table, counts):
     v = counts['values']
     hval = []
     suit = []
-    holding = []
+    holding = ['ZZ']
     try:
         max_suit = max(counts['suits'].values())
     except ValueError:
@@ -414,7 +473,7 @@ def gen_hold(phase, player, table, counts):
         card_vals = ([], [])
         values = (dd(int), dd(int))
         for card in player.hand:
-            if not card.value == 25:
+            if not card.value >= 20:
                 values[card.colour][card.value] += 1
                 if card.value not in card_vals[card.colour]:
                     unique_cards[card.colour].append(card.name)
@@ -442,9 +501,8 @@ def gen_viable(phase, player, table, counts):
     v = counts['values']
     discard = table.discard
     viable = []
-    if discard is None:
-        return
-
+    if discard is None or discard.name == 'ZZ':
+        return viable
     # get discard, try placing on phases
     if phase is None:
         card = [discard]
@@ -541,7 +599,7 @@ def gen_discard(phase, player, table, counts):
     hold_4s = []
 
     # get current conditions for values and suits
-    exwild = [card.name for card in player.hand if not card.value == 25]
+    exwild = [card.name for card in player.hand if not card.value >= 20]
     # value conditions
     v = counts['values']
     max_val = max(v.values())
@@ -563,6 +621,10 @@ def gen_discard(phase, player, table, counts):
         if count == min_suit:
             suit.append(value)
 
+    # get current draw probabilities and additional hold logic
+    prob = prob_count(player, table)
+    hold = gen_hold(phase, player, table, counts)
+
     # do not discard valid plays to next player
     player_phase = table.status[player.pid].phase
     if player.pid + 1 == 4:
@@ -576,9 +638,13 @@ def gen_discard(phase, player, table, counts):
         check_4s(table, test_4s, val_4s)
         hold_4s = [play[1][0] for play in val_4s]
 
-    # get current draw probabilities and additional hold logic
-    prob = prob_count(player, table)
-    hold = gen_hold(phase, player, table, counts)
+    # skip player with phase played and skip status unset
+    if 'ZZ' in player.hand_list:
+        for i in range(4):
+            if (not i == player.pid and table.status[i].phase and not
+                    prob[4][i]):
+                return ['ZZ', i]
+
     for card in player.hand:
         if card.value == 25:
             wild.append(card)
@@ -661,9 +727,9 @@ def gen_discard(phase, player, table, counts):
     return discard
 
 
-def phasedout_play(player_id, table, turn_history, phase_status, hand,
-                   discard):
-    """phasedout_play returns the best move given the game status."""
+def phasedout_bonus(player_id, table, turn_history, phase_status, hand,
+                    discard):
+    """phasedout_bonus returns the best move given the game status."""
     # get current game status
     player = Player(player_id, phase_status[player_id], hand)
     table = Table(table, turn_history, phase_status, discard)
@@ -675,8 +741,7 @@ def phasedout_play(player_id, table, turn_history, phase_status, hand,
 
     analysis = card_count(player, table)
     best_discard, viable = analysis[0], analysis[1]
-
-    if last_move == 0 or last_move == 5:
+    if last_move == 0 or last_move >= 5:
         if table.discard.name in viable:
             return (2, table.discard.name)
         else:
@@ -689,3 +754,18 @@ def phasedout_play(player_id, table, turn_history, phase_status, hand,
     # phase has been played, try move 4
     elif curr_phase is not None:
         return valid_4s(player, table, best_discard)
+
+
+if __name__ == '__main__':
+    # Example call to the function.
+    print(phasedout_bonus(0,
+                          [(None, []), (None, []), (None, []), (None, [])],
+                          [(0, [(2, 'JS')])],
+                          [(False, False, False, False, False),
+                              (False, False, False, False, False),
+                              (False, False, False, False, False),
+                              (False, False, False, False, False)],
+                          ['5D', '3H', '0C', '2H',
+                              '2C', '7H', 'KS', 'AS', 'ZZ', 'JC'],
+                          'ZZ')
+          )
