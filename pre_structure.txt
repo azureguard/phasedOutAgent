@@ -1,0 +1,61 @@
+MAX_CARDS = 104
+MAX_PLAYS = 50
+
+Card
+- points
+- run_val
+- colour
+- suit
+- All
+- set_wild > redef to card
+
+Table
+- set (class)
+- deck (class)
+- discard (class)
+
+Deck
+Methods
+- Draw
+- Count
+- Shuffle
+
+Discard
+Methods
+- Draw
+- Add
+
+Player
+Methods
+- create
+	- draw_deck x 10
+	- set to input
+- play
+	- 1 - draw_deck
+	- 2 - draw_discard
+	- 3 - phase
+	- 4 - set
+	- 5 - discard
+- score
+
+Set
+Methods
+- create([list_of_cards, list_of_cards], player)
+	- get phase
+		- get no. of groups
+			- get group
+- add(card, player, group, position)
+- phase
+	definitions
+		- 1 - (group 1, group 1)
+		- 2 - (group 2)
+		- 3 - (group 3, group 3)
+		- 4 - (group 4)
+		- 5 - (group 5, group 3)
+	- group
+		definitions
+			- 1 - same run_val (3 cards)
+			- 2 - same suit (7 cards)
+			- 3 - same run_val (4 cards)
+			- 4 - running order (8 cards)
+			- 5 - same colour (4 cards, running order)
